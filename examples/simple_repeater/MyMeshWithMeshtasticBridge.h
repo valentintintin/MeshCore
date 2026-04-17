@@ -16,28 +16,8 @@ struct MeshtasticBridgePrefs {
   uint8_t tx_pin = -1;
   uint8_t baud_rate = 115200;
   uint16_t tx_delay = 0;
-  ChannelDetails meshcore_channels_to_listen[MESHTASTIC_MAX_CHANNELS] = {};
+  ChannelDetails channels[MESHTASTIC_MAX_CHANNELS] = {};
 };
-
-/*
- mt get enabled
- mt set enabled on|off
- mt get channels // Get
- mt get channel x // Get
- mt set channel 0 Public // Fr_Balise
- mt set channel 1 #frblabla // Fr_Blabla
- mt set channel 2 Public // LongFast
- mt set channel 3 Public // LongMod
- mt set channel 4 - // Disable
- mt get tx_delay
- mt set tx_delay ms
- mt get rx_pin
- mt set rx_pin pin
- mt get tx_pin
- mt set tx_pin pin
- mt get baud_rate
- mt set baud_rate baud
- */
 
 class MyMeshWithMeshtasticBridge : public MyMesh {
 public:
@@ -45,6 +25,7 @@ public:
                              mesh::RNG &rng, mesh::RTCClock &rtc, mesh::MeshTables &tables);
   bool begin(FILESYSTEM *fs, int8_t rxPin, int8_t txPin, uint32_t baudRate = 115200);
   void want_to_send_to_meshtastic(const char *send_name, const char *text, int text_len);
+  void handleCommand(uint32_t sender_timestamp, char* command, char* reply);
   void loop();
 
 protected:
@@ -65,6 +46,7 @@ private:
   bool send_to_meshtastic();
   bool send_to_meshcore(const char *sender_name, const char *text, int text_len);
 
+  MeshtasticBridgePrefs _meshtastic_bridge_prefs;
   mesh::GroupChannel meshcore_public_channel{};
   mesh::GroupChannel meshcore_test_channel{};
   mt_node_t node_infos[100]{};
