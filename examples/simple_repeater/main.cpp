@@ -93,7 +93,7 @@ void setup() {
 
   sensors.begin();
 
-  the_mesh.begin(fs, 9, 8);
+  the_mesh.begin(fs);
 
 #ifdef DISPLAY_CLASS
   ui_task.begin(the_mesh.getNodePrefs(), FIRMWARE_BUILD_DATE, FIRMWARE_VERSION);
