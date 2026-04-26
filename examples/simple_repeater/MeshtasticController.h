@@ -1,49 +1,58 @@
 #pragma once
 
 #include "Dispatcher.h"
+#include "MeshtasticBridgeCommon.h"
+#include "MyMeshWithMeshtasticBridge.h"
 
 #include <Meshtastic.h>
 
 // Request a node report every this many msec
+#ifndef NODE_REPORT_PERIOD
 #define NODE_REPORT_PERIOD (300 * 1000)
+#endif
 
-#define MESHTASTIC_MAX_MESSAGE_LENGTH 200
-
-#ifndef MT_MAX_NODEDB
-#define MT_MAX_NODEDB 100
+#ifndef MESHTASTIC_MAX_NODEDB
+#define MESHTASTIC_MAX_NODEDB 100
 #endif
 
 struct MeshtasticNode {
   uint32_t node_num;
   char long_name[MAX_LONG_NAME_LEN];
+  uint32_t last_send_timestamp;
 };
 
-struct MeshtasticMessageToSend {
-  char message[MESHTASTIC_MAX_MESSAGE_LENGTH];
-  uint8_t channel_index;
-  uint32_t next_time_to_send;
-};
+class MyMeshWithMeshtasticBridge;
 
 class MeshtasticController {
 public:
-  explicit MeshtasticController(mesh::MillisecondClock& ms);
-  void want_to_send_to_meshtastic(const char *send_name, const char *text, int text_len);
-  void loop();
+  explicit MeshtasticController(MyMeshWithMeshtasticBridge* mesh);
+  bool begin(uint8_t rx_pin, uint8_t tx_pin, uint8_t baud_rate);
+  void loop(uint32_t now);
+  bool send_message(uint32_t now, MeshtasticBridgeMessageToSend message_to_send);
+
+  uint8_t nodes_count() const {
+    return _nodes_count;
+  }
+
+  MeshtasticNode* get_last_seen() const {
+    return _last_seen;
+  }
 private:
-  static void node_report_callback(mt_node_t *nodeinfo, mt_nr_progress_t progress);
-  static void text_message_callback(uint32_t from, uint32_t to, uint8_t channel, const char *text);
+  static void node_report_callback(mt_node_t *node_info, mt_nr_progress_t progress);
+  static void text_message_callback(uint32_t from_node_id, uint32_t to_node_id, uint8_t channel_index, const char *text);
   static MeshtasticController* instance;
 
-  void add_node_info(mt_node_t *nodeinfo, mt_nr_progress_t progress);
-  void text_message_received(uint32_t from, uint32_t to, uint8_t channel, const char *text);
   bool request_node_report();
-  bool send_to_meshtastic();
+  void add_node_to_db(mt_node_t *node_info, mt_nr_progress_t progress);
+  void text_message_received(uint32_t from_node_id, uint32_t to_node_id, uint8_t channel_index, const char *text);
 
-  MeshtasticNode _node_infos[MT_MAX_NODEDB]{};
-  MeshtasticMessageToSend _message_to_send{};
+  MeshtasticNode _nodes[MESHTASTIC_MAX_NODEDB]{};
+  MyMeshWithMeshtasticBridge* _mesh;
 
-  uint8_t _node_infos_count = 0;
+  uint8_t _nodes_count = 0;
   uint32_t _next_node_report_time = 0;
 
-  mesh::MillisecondClock& ms;
+  MeshtasticNode* _last_seen = nullptr;
+
+  // bool _has_error = false; // TODO mode status avec timeout du report
 };
