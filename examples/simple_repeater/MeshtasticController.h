@@ -18,7 +18,6 @@
 struct MeshtasticNode {
   uint32_t node_num;
   char long_name[MAX_LONG_NAME_LEN];
-  uint32_t last_send_timestamp;
 };
 
 class MyMeshWithMeshtasticBridge;
@@ -26,12 +25,18 @@ class MyMeshWithMeshtasticBridge;
 class MeshtasticController {
 public:
   explicit MeshtasticController(MyMeshWithMeshtasticBridge* mesh);
-  bool begin(uint8_t rx_pin, uint8_t tx_pin, uint8_t baud_rate);
+  bool begin(uint8_t rx_pin, uint8_t tx_pin, uint32_t baud_rate);
   void loop(uint32_t now);
+  void stop();
+  bool request_node_report();
   bool send_message(uint32_t now, MeshtasticBridgeMessageToSend message_to_send);
 
   uint8_t nodes_count() const {
     return _nodes_count;
+  }
+
+  MeshtasticNode get_node(uint8_t index) const {
+    return _nodes[index];
   }
 
   MeshtasticNode* get_last_seen() const {
@@ -42,7 +47,6 @@ private:
   static void text_message_callback(uint32_t from_node_id, uint32_t to_node_id, uint8_t channel_index, const char *text);
   static MeshtasticController* instance;
 
-  bool request_node_report();
   void add_node_to_db(mt_node_t *node_info, mt_nr_progress_t progress);
   void text_message_received(uint32_t from_node_id, uint32_t to_node_id, uint8_t channel_index, const char *text);
 

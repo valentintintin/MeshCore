@@ -8,8 +8,6 @@
 #define PUBLIC_GROUP_PSK "izOH6cXN6mrJ5e26oRXNcg=="
 #define PREFS_FILENAME "/meshtastic_bridge_prefs"
 
-// TODO stats + clear
-
 class MeshtasticController;
 
 // ReSharper disable once CppPolymorphicClassWithNonVirtualPublicDestructor

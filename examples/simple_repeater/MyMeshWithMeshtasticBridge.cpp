@@ -12,6 +12,10 @@ void MyMeshWithMeshtasticBridge::begin(FILESYSTEM *fs) {
 
   _fs = fs;
 
+  add_meshcore_bridge_channel(0, "public");
+
+  loadFilePrefs();
+
   beginBridge();
 }
 
@@ -45,34 +49,54 @@ void MyMeshWithMeshtasticBridge::handleCommand(uint32_t sender_timestamp, char *
  */
 
   if (memcmp(command, "mt ", 3) == 0) {
-    const char *config = &command[3];
-    if (memcmp(config, "get ", 4) == 0) {
-      handleGetCmd(sender_timestamp, command, reply);
-    } else if (memcmp(config, "set ", 4) == 0) {
-      handleSetCmd(sender_timestamp, command, reply);
-    } else if (memcmp(config, "save ", 4) == 0) {
+    const char *sub_command = &command[3];
+    if (memcmp(sub_command, "get ", 4) == 0) {
+      handleGetCmd(sender_timestamp, &sub_command[4], reply);
+    } else if (memcmp(sub_command, "set ", 4) == 0) {
+      handleSetCmd(sender_timestamp, &sub_command[4], reply);
+    } else if (memcmp(sub_command, "reload ", 6) == 0) {
+      beginBridge();
+      strcpy(reply, "OK");
+    } else if (memcmp(sub_command, "save ", 4) == 0) {
       if (saveFilePrefs()) {
         beginBridge();
         strcpy(reply, "OK");
       } else {
         strcpy(reply, "Err - save failed");
       }
-    } else if (memcmp(command, "stats", 15) == 0) {
+    } else if (memcmp(sub_command, "stats", 5) == 0) {
       const auto mt_last_seen = _meshtastic_controller->get_last_seen();
-      sprintf(reply, ">\nMT RX: %d [-%d s, !%X/%d], MC->MT TX: %d\nMC RX: %d, MT->MC TX: %d [-%d s]",
+      sprintf(reply, ">\nMT RX: %d [-%d s, !%x %s], MC->MT TX: %d\nMC RX: %d, MT->MC TX: %d [-%d s]",
         _n_received_meshtastic, (_ms->getMillis() - _last_meshtastic_message_time) / 1000,
-        mt_last_seen != nullptr ? mt_last_seen->node_num : 0, _meshtastic_controller->nodes_count(), _n_sent_meshtastic,
+        mt_last_seen != nullptr ? mt_last_seen->node_num : 0, mt_last_seen != nullptr ? mt_last_seen->long_name : "", _n_sent_meshtastic,
         _n_received_meshcore, _n_sent_meshcore, (_ms->getMillis() - _last_meshcore_message_time) / 1000);
+    } else if (memcmp(sub_command, "test", 4) == 0) {
+      MeshtasticBridgeMessageToSend message_to_send = {
+        .message = "Test",
+      };
+      strncpy(message_to_send.sender_name, getNodeName(), MAX_SENDER_NAME_LEN);
+      if (_meshtastic_controller->send_message(_ms->getMillis(), message_to_send)) {
+        sprintf(reply, "> MT nodes: %d\nTest sent on MT primary channel", _meshtastic_controller->nodes_count());
+      } else {
+        sprintf(reply, "> MT nodes: %d. Can not send on MT", _meshtastic_controller->nodes_count());
+      }
+
+      _meshtastic_controller->request_node_report();
+    } else if (memcmp(sub_command, "reset", 4) == 0) {
+      _meshtastic_controller->stop();
+      _queue_message_to_send_to_meshcore.clear();
+      _queue_message_to_send_to_meshtastic.clear();
+      _meshtastic_bridge_prefs = {};
+      saveFilePrefs();
     } else {
-      sprintf(reply, "??: %s", command);
+      sprintf(reply, "??: mt %s", sub_command);
     }
   } else {
     MyMesh::handleCommand(sender_timestamp, command, reply);
   }
 }
 
-void MyMeshWithMeshtasticBridge::handleGetCmd(uint32_t sender_timestamp, const char *command, char *reply) {
-  const char *config = &command[4];
+void MyMeshWithMeshtasticBridge::handleGetCmd(uint32_t sender_timestamp, const char *config, char *reply) {
   if (memcmp(config, "enabled", 7) == 0) {
     sprintf(reply, "> %s", _meshtastic_bridge_prefs.enabled ? "on" : "off");
   } else if (memcmp(config, "tx_delay", 8) == 0) {
@@ -90,34 +114,41 @@ void MyMeshWithMeshtasticBridge::handleGetCmd(uint32_t sender_timestamp, const c
   } else if (memcmp(config, "channels", 8) == 0) {
     sprintf(reply, ">");
     uint8_t channel_index = 0;
-    for (const auto [channel, name] : _meshtastic_bridge_prefs.bridge_channels) {
-      if (strlen(name)) {
-        sprintf(reply, "%s\n%d -> %s", reply, channel_index, name);
+    for (const auto [channel_details, region] : _meshtastic_bridge_prefs.bridge_channels) {
+      if (channel_details.name[0] != '\0') {
+        sprintf(reply, "%s\n%d -> %s [%s]", reply, channel_index, channel_details.name, region);
       } else {
         sprintf(reply, "%s\n%d -> disabled", reply, channel_index);
       }
       channel_index++;
     }
   } else if (memcmp(config, "channel ", 8) == 0) {
-    const auto channel_index = atoi(&command[8]);
+    const auto channel_index = atoi(&config[8]);
     if (channel_index < sizeof(_meshtastic_bridge_prefs.bridge_channels)) {
-      const auto [channel, name] = _meshtastic_bridge_prefs.bridge_channels[channel_index];
+      const auto [channel_details, region] = _meshtastic_bridge_prefs.bridge_channels[channel_index];
       sprintf(reply, "> MT channel %d : ", channel_index);
-      if (name[0] != '-') {
-        sprintf(reply, "\t %d -> %s", channel_index, name);
+      if (channel_details.name[0] != '\0') {
+        sprintf(reply, "\t %d -> %s [%s]", channel_index, channel_details.name, region);
       } else {
         sprintf(reply, "\t %d -> disabled", channel_index);
       }
     } else {
       sprintf(reply, "ERROR: [0; %d]", sizeof(_meshtastic_bridge_prefs.bridge_channels));
     }
+  } else if (memcmp(config, "node ", 5) == 0) {
+    const auto node_index = atoi(&config[5]);
+    if (node_index < _meshtastic_controller->nodes_count()) {
+      const auto [node_num, long_name] = _meshtastic_controller->get_node(node_index);
+      sprintf(reply, "> MT node %d/%d = !%x : %s", node_index, _meshtastic_controller->nodes_count(), node_num, long_name);
+    } else {
+      sprintf(reply, "ERROR: [0; %d]", _meshtastic_controller->nodes_count());
+    }
   } else {
-    sprintf(reply, "??: %s", config);
+    sprintf(reply, "??: mt get %s", config);
   }
 }
 
-void MyMeshWithMeshtasticBridge::handleSetCmd(uint32_t sender_timestamp, const char *command, char *reply) {
-  const char *config = &command[4];
+void MyMeshWithMeshtasticBridge::handleSetCmd(uint32_t sender_timestamp, const char *config, char *reply) {
   if (memcmp(config, "enabled ", 8) == 0) {
     _meshtastic_bridge_prefs.enabled = strcasecmp(&config[8], "on") == 0;
     sprintf(reply, "OK - %s", _meshtastic_bridge_prefs.enabled ? "on" : "off");
@@ -140,44 +171,51 @@ void MyMeshWithMeshtasticBridge::handleSetCmd(uint32_t sender_timestamp, const c
     _meshtastic_bridge_prefs.interval_stop_relay_mt = (uint32_t) atoi(&config[14]) * 1000;
     sprintf(reply, "> %d s", _meshtastic_bridge_prefs.interval_stop_relay_mt / 1000);
   } else if (memcmp(config, "channel ", 8) == 0) {
-    const auto channel_index = atoi(&command[8]);
-    const char *space_pos = strchr(&command[8], ' ');
-    if (space_pos != nullptr && channel_index < sizeof(_meshtastic_bridge_prefs.bridge_channels)) {
-      const char *new_channel_name = space_pos + 1;
-      if (new_channel_name[0] != '-') {
+    int channel_index;
+    char new_channel_name[32] = {};
+    char new_region[31] = {};
+
+    // Parser : "channel XX NAME REGION"
+    int parsed = sscanf(&config[8], "%d %32s %31s", &channel_index, new_channel_name, new_region);
+
+    if (parsed >= 2 && channel_index < sizeof(_meshtastic_bridge_prefs.bridge_channels)) {
+      if (new_channel_name[0] != '-' && new_channel_name[0] != '\0') {
         const auto success = add_meshcore_bridge_channel(channel_index, new_channel_name);
         if (success) {
-          sprintf(reply, "OK - MT channel %d : %s", channel_index, new_channel_name);
+          sprintf(reply, "OK - MT channel %d : %s [%s]", channel_index, new_channel_name, new_region);
         } else {
           sprintf(reply, "ERROR: MT channel %d", channel_index);
         }
       } else {
-        auto [channel, channel_name] = _meshtastic_bridge_prefs.bridge_channels[channel_index];
-        strcpy(channel_name, "-");
+        memset(_meshtastic_bridge_prefs.bridge_channels[channel_index].region, 0, sizeof(_meshtastic_bridge_prefs.bridge_channels[channel_index].region));
+        memset(_meshtastic_bridge_prefs.bridge_channels[channel_index].channel_details.channel.secret, 0, sizeof(_meshtastic_bridge_prefs.bridge_channels[channel_index].channel_details.channel.secret));
+        memset(_meshtastic_bridge_prefs.bridge_channels[channel_index].channel_details.channel.hash, 0, sizeof(_meshtastic_bridge_prefs.bridge_channels[channel_index].channel_details.channel.hash));
+        memset(_meshtastic_bridge_prefs.bridge_channels[channel_index].channel_details.name, 0, sizeof(_meshtastic_bridge_prefs.bridge_channels[channel_index].channel_details.name));
         sprintf(reply, "OK - MT channel %d : disabled", channel_index);
       }
     } else {
       sprintf(reply, "ERROR: [0; %d]", sizeof(_meshtastic_bridge_prefs.bridge_channels));
     }
   } else {
-    sprintf(reply, "??: %s", config);
+    sprintf(reply, "??: mt set %s", config);
   }
 }
 
 void MyMeshWithMeshtasticBridge::beginBridge() {
-  add_meshcore_bridge_channel(0, "public");
-  add_meshcore_bridge_channel(1, "#valentintest");
+  if (_meshtastic_bridge_prefs.enabled) {
+    uint8_t channel_index = 0;
+    for (const auto [channel_details, region] : _meshtastic_bridge_prefs.bridge_channels) {
+      if (channel_details.name[0] != '\0') {
+        MESH_DEBUG_PRINTLN("Bridge MT channel %d -> %s [%s]", channel_index, channel_details.name, region);
+      } else {
+        MESH_DEBUG_PRINTLN("Bridge MT channel %d -> disabled", channel_index);
+      }
+      channel_index++;
+    }
 
-  loadFilePrefs();
-
-  if (_meshtastic_bridge_prefs.rx_pin != -1 && _meshtastic_bridge_prefs.tx_pin != -1 &&
-      _meshtastic_bridge_prefs.baud_rate > 0) {
-    MESH_DEBUG_PRINTLN("Bridge MT init on pin TX: %d and RX: %d with baudRate: %d",
-                       _meshtastic_bridge_prefs.tx_pin, _meshtastic_bridge_prefs.rx_pin,
-                       _meshtastic_bridge_prefs.baud_rate);
-
-    _meshtastic_controller->begin(_meshtastic_bridge_prefs.rx_pin, _meshtastic_bridge_prefs.tx_pin,
-                                  _meshtastic_bridge_prefs.tx_delay);
+    _meshtastic_controller->begin(_meshtastic_bridge_prefs.rx_pin, _meshtastic_bridge_prefs.tx_pin, _meshtastic_bridge_prefs.baud_rate);
+  } else {
+    MESH_DEBUG_PRINTLN("Bridge MT disabled");
   }
 }
 
@@ -196,9 +234,9 @@ bool MyMeshWithMeshtasticBridge::loadFilePrefs() {
       file.close();
 
       if (success) {
-        MESH_DEBUG_PRINTLN("Bridge MT. Load prefs to file OK");
+        MESH_DEBUG_PRINTLN("Bridge MT. Load prefs from file OK");
       } else {
-        MESH_DEBUG_PRINTLN("Bridge MT. Load prefs to file KO");
+        MESH_DEBUG_PRINTLN("Bridge MT. Load prefs from file KO");
       }
 
       return success;
@@ -241,17 +279,18 @@ bool MyMeshWithMeshtasticBridge::saveFilePrefs() {
 bool MyMeshWithMeshtasticBridge::add_meshcore_bridge_channel(const uint8_t index, const char *name) {
   MESH_DEBUG_PRINTLN("Bridge MT. Add channel %s at position %d", name, index);
 
-  auto [channel, channel_name] = _meshtastic_bridge_prefs.bridge_channels[index];
-  memset(channel.secret, 0, sizeof(channel.secret));
-  memset(channel_name, 0, sizeof(channel_name));
+  auto channel_details = &_meshtastic_bridge_prefs.bridge_channels[index];
+  memset(channel_details->channel.secret, 0, sizeof(channel_details->channel.secret));
+  memset(channel_details->channel.hash, 0, sizeof(channel_details->channel.hash));
+  memset(channel_details->name, 0, sizeof(channel_details->name));
 
   if (strcasecmp(name, "Public") == 0) {
     const auto psk_base64 = PUBLIC_GROUP_PSK;
-    const int len = decode_base64((unsigned char *)psk_base64, strlen(psk_base64), channel.secret);
+    const int len = decode_base64((unsigned char *)psk_base64, strlen(psk_base64), channel_details->channel.secret);
     if (len == 32 || len == 16) {
-      mesh::Utils::sha256(channel.hash, sizeof(channel.hash), channel.secret, len);
+      mesh::Utils::sha256(channel_details->channel.hash, sizeof(channel_details->channel.hash), channel_details->channel.secret, len);
 
-      strcpy(channel_name, name);
+      strncpy(channel_details->name, name, sizeof(channel_details->name));
 
       MESH_DEBUG_PRINTLN("Bridge MT. Add channel (public) at position %d OK", index);
 
@@ -269,7 +308,12 @@ bool MyMeshWithMeshtasticBridge::add_meshcore_bridge_channel(const uint8_t index
     return false;
   }
 
-  MESH_DEBUG_PRINTLN("Bridge MT. Add channel %s at position %d OK", name, index);
+  strncpy(channel_details->name, name, sizeof(channel_details->name));
+  constexpr auto len = 16;
+  mesh::Utils::sha256(channel_details->channel.secret, len, (const uint8_t *)name, strlen(name));
+  mesh::Utils::sha256(channel_details->channel.hash, sizeof(channel_details->channel.hash), channel_details->channel.secret, len);
+
+  MESH_DEBUG_PRINTLN("Bridge MT. Add channel %s (0x%x | 0x%x) at position %d OK", name, channel_details->channel.secret[0], channel_details->channel.hash[0], index);
 
   return true;
 }
@@ -292,6 +336,11 @@ bool MyMeshWithMeshtasticBridge::send_message_to_meshcore_from_meshtastic(const 
     return false;
   }
 
+  if (strlen(_meshtastic_bridge_prefs.bridge_channels[meshtastic_channel_index].name) == 0) {
+    MESH_DEBUG_PRINTLN("Bridge MT channel index %d not configured", meshtastic_channel_index);
+    return false;
+  }
+
   MeshtasticBridgeMessageToSend message_to_send = { .meshtastic_channel_index = meshtastic_channel_index,
                                                     .next_time_to_send = _ms->getMillis() +
                                                                          _meshtastic_bridge_prefs.tx_delay };
@@ -304,8 +353,8 @@ bool MyMeshWithMeshtasticBridge::send_message_to_meshcore_from_meshtastic(const 
   _n_sent_meshcore++;
 
   if (success) {
-    MESH_DEBUG_PRINTLN("Bridge MT message from MT from %s OK. Next TX at %ld", sender_name,
-                        message_to_send.next_time_to_send);
+    MESH_DEBUG_PRINTLN("Bridge MT message from MT from %s OK. Next TX at %ld (%ld)", sender_name,
+                        message_to_send.next_time_to_send, _ms->getMillis());
   } else {
     MESH_DEBUG_PRINTLN("Bridge MT message from MT from %s KO. Queue full", sender_name);
   }
@@ -349,6 +398,10 @@ int MyMeshWithMeshtasticBridge::searchChannelsByHash(const uint8_t *hash, mesh::
 void MyMeshWithMeshtasticBridge::onGroupDataRecv(mesh::Packet *packet, uint8_t type,
                                                  const mesh::GroupChannel &channel, uint8_t *data,
                                                  size_t len) {
+  if (!_meshtastic_bridge_prefs.enabled) {
+    return;
+  }
+
   const uint8_t txt_type = data[4];
   if (type == PAYLOAD_TYPE_GRP_TXT && len > 5 && (txt_type >> 2) == 0) { // 0 = plain text msg
     uint32_t timestamp;
@@ -373,7 +426,7 @@ void MyMeshWithMeshtasticBridge::onGroupDataRecv(mesh::Packet *packet, uint8_t t
     uint8_t channel_index = 0;
 
     for (auto [channel_loop, name] : _meshtastic_bridge_prefs.bridge_channels) {
-      if (channel_loop.hash[0] == channel.hash[0]) {
+      if (channel_loop.hash[0] == channel.hash[0] && name[0] != '\0') {
         break;
       }
 
@@ -387,7 +440,7 @@ void MyMeshWithMeshtasticBridge::onGroupDataRecv(mesh::Packet *packet, uint8_t t
       MeshtasticBridgeMessageToSend message_to_send = { .meshtastic_channel_index = channel_index,
                                                     .next_time_to_send = _ms->getMillis() +
                                                                          _meshtastic_bridge_prefs.tx_delay };
-      sscanf(text, "%:%s", &message_to_send.sender_name, &message_to_send.message);
+      sscanf(text, "%31[^:]: %199s", message_to_send.sender_name, message_to_send.message);
 
       _last_meshcore_message_time = _ms->getMillis();
       _n_sent_meshtastic++;
@@ -395,8 +448,8 @@ void MyMeshWithMeshtasticBridge::onGroupDataRecv(mesh::Packet *packet, uint8_t t
       const auto success = _queue_message_to_send_to_meshtastic.enqueue(message_to_send);
 
       if (success) {
-        MESH_DEBUG_PRINTLN("Bridge MT message from MC from %s OK. Next TX at %ld", message_to_send.sender_name,
-                            message_to_send.next_time_to_send);
+        MESH_DEBUG_PRINTLN("Bridge MT message from MC from %s OK. Next TX at %ld (%ld)", message_to_send.sender_name,
+                            message_to_send.next_time_to_send, _ms->getMillis());
       } else {
         MESH_DEBUG_PRINTLN("Bridge MT message from MC from %s KO. Queue full", message_to_send.sender_name);
       }
@@ -436,7 +489,7 @@ bool MyMeshWithMeshtasticBridge::send_message(MeshtasticBridgeMessageToSend mess
   const auto pkt =
       createGroupDatagram(PAYLOAD_TYPE_GRP_TXT, channel_details->channel, temp, 5 + prefix_len + text_len);
 
-  MESH_DEBUG_PRINTLN("Bridge MT send to MC on channel %d : %s", channel_details->name, temp + 5);
+  MESH_DEBUG_PRINTLN("Bridge MT send to MC on channel %s : %s", channel_details->name, temp + 5);
 
   if (pkt) {
     sendFlood(pkt);

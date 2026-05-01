@@ -27,6 +27,12 @@ public:
     return true;
   }
 
+  void clear() {
+    head = 0;
+    tail = 0;
+    count = 0;
+  }
+
   T* get_next() {
     if (isEmpty()) {
       return nullptr;

@@ -1,15 +1,8 @@
 #include "MeshtasticController.h"
 
 #include "MeshCore.h"
+#include "mt_internals.h"
 
-MeshtasticController *MeshtasticController::instance = nullptr;
-
-MeshtasticController::MeshtasticController(MyMeshWithMeshtasticBridge* mesh) : _mesh(mesh) {
-  instance = this;
-
-  set_text_message_callback(text_message_callback);
-}
-bool MeshtasticController::begin(uint8_t rx_pin, uint8_t tx_pin, uint8_t baud_rate) {
 #ifndef MT_SERIAL
 #if defined(ARDUINO_ARCH_SAMD)
 #define MT_SERIAL Serial1
@@ -19,6 +12,21 @@ bool MeshtasticController::begin(uint8_t rx_pin, uint8_t tx_pin, uint8_t baud_ra
 #define MT_SERIAL Serial1
 #endif
 #endif
+
+MeshtasticController *MeshtasticController::instance = nullptr;
+
+MeshtasticController::MeshtasticController(MyMeshWithMeshtasticBridge* mesh) : _mesh(mesh) {
+  instance = this;
+
+  set_text_message_callback(text_message_callback);
+}
+bool MeshtasticController::begin(uint8_t rx_pin, uint8_t tx_pin, uint32_t baud_rate) {
+  stop();
+
+  if (rx_pin == 255 || tx_pin == 255 || baud_rate == 0) {
+    MESH_DEBUG_PRINTLN("Bridge MT can not be initiated on pin TX: %d and RX: %d with baudRate: %d",tx_pin, rx_pin, baud_rate);
+    return false;
+  }
 
 #if defined(ARDUINO_ARCH_ESP32)
   MT_SERIAL.begin(baud_rate, SERIAL_8N1, rx_pin, tx_pin);
@@ -32,12 +40,18 @@ bool MeshtasticController::begin(uint8_t rx_pin, uint8_t tx_pin, uint8_t baud_ra
   MT_SERIAL.begin(baud_rate);
 #endif
 
+  MESH_DEBUG_PRINTLN("Bridge MT init on pin TX: %d and RX: %d with baudRate: %ld",tx_pin, rx_pin, baud_rate);
+
   mt_serial_init(&MT_SERIAL);
 
   return request_node_report();
 }
 
 void MeshtasticController::loop(uint32_t now) {
+  if (!mt_serial_mode) {
+    return;
+  }
+
   const auto can_send = mt_loop(now);
 
   if (can_send) {
@@ -46,6 +60,12 @@ void MeshtasticController::loop(uint32_t now) {
       _next_node_report_time = millis();
     }
   }
+}
+
+void MeshtasticController::stop() {
+  mt_serial_mode = false;
+  MT_SERIAL.end();
+  MESH_DEBUG_PRINTLN("Bridge MT. Serial stopped");
 }
 
 void MeshtasticController::node_report_callback(mt_node_t *node_info, const mt_nr_progress_t progress) {
@@ -67,8 +87,9 @@ void MeshtasticController::add_node_to_db(mt_node_t *node_info, const mt_nr_prog
                      node_info->node_num, node_info->short_name, node_info->long_name);
 
   if (progress == MT_NR_IN_PROGRESS) {
-    _nodes[_nodes_count++].node_num = node_info->node_num;
-    strcpy(_nodes[_nodes_count++].long_name, node_info->long_name);
+    _nodes[_nodes_count].node_num = node_info->node_num;
+    strcpy(_nodes[_nodes_count].long_name, node_info->long_name);
+    _nodes_count++;
   }
 }
 
@@ -77,11 +98,16 @@ void MeshtasticController::text_message_received(const uint32_t from_node_id, co
 
   if (to_node_id == 0xFFFFFFFF) {
     MeshtasticNode *node_info = nullptr;
-    for (auto &i : _nodes) {
-      MESH_DEBUG_PRINTLN("Bridge MT match received %x with node %x (%s) ?", from_node_id, i.node_num, i.long_name);
-      if (i.node_num == from_node_id && strlen(i.long_name) > 0) {
-        MESH_DEBUG_PRINTLN("Bridge MT match found for node %x (%s) !", i.node_num, i.long_name);
-        node_info = &i;
+    for (auto i = 0; i < _nodes_count; i++) {
+      const auto [node_num, long_name] = _nodes[i];
+
+      if (!node_num) {
+        continue;
+      }
+
+      if (node_num == from_node_id) {
+        MESH_DEBUG_PRINTLN("Bridge MT match found for node %x (%s)", node_num, long_name);
+        node_info = &_nodes[i];
         break;
       }
     }
@@ -89,9 +115,11 @@ void MeshtasticController::text_message_received(const uint32_t from_node_id, co
     char sender_name[MESHTASTIC_MAX_MESSAGE_LENGTH];
 
     if (node_info != nullptr) {
-      strncpy(sender_name, node_info->long_name, sizeof(sender_name));
-      node_info->last_send_timestamp = _mesh->getRTCClock()->getCurrentTime();
       _last_seen = node_info;
+
+      if (strlen(node_info->long_name)) {
+        strncpy(sender_name, node_info->long_name, sizeof(sender_name));
+      }
     } else {
       snprintf(sender_name, sizeof(sender_name), "!%x", from_node_id);
     }
@@ -101,16 +129,22 @@ void MeshtasticController::text_message_received(const uint32_t from_node_id, co
 }
 
 bool MeshtasticController::send_message(uint32_t now, MeshtasticBridgeMessageToSend message_to_send) {
+  if (!mt_serial_mode) {
+    MESH_DEBUG_PRINTLN("Bridge MT. MT can not send message : serial not initiated");
+    return false;
+  }
+
   const auto can_send = mt_loop(now);
 
   if (!can_send) {
+    MESH_DEBUG_PRINTLN("Bridge MT. MT can not send message : not ready");
     return false;
   }
 
   char temp[MESHTASTIC_MAX_MESSAGE_LENGTH];
   snprintf(temp, MESHTASTIC_MAX_MESSAGE_LENGTH, "MT_%s:%s", message_to_send.sender_name, message_to_send.message);
 
-  MESH_DEBUG_PRINTLN("Bridge MT send message to MT %s", temp);
+  MESH_DEBUG_PRINTLN("Bridge MT send message to MT channel %d : %s", message_to_send.meshtastic_channel_index, temp);
 
-  return mt_send_text(temp, 0xFFFFFF, message_to_send.meshtastic_channel_index);
+  return mt_send_text(temp, 0xFFFFFFFF, message_to_send.meshtastic_channel_index);
 }
