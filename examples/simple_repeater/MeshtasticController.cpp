@@ -118,7 +118,7 @@ void MeshtasticController::text_message_received(const uint32_t from_node_id, co
       _last_seen = node_info;
 
       if (strlen(node_info->long_name)) {
-        strncpy(sender_name, node_info->long_name, sizeof(sender_name));
+        StrHelper::strncpy(sender_name, node_info->long_name, sizeof(sender_name));
       }
     } else {
       snprintf(sender_name, sizeof(sender_name), "!%x", from_node_id);
