@@ -23,7 +23,7 @@ struct MeshtasticNode {
 class MyMeshWithMeshtasticBridge;
 
 class MeshtasticController {
-public:
+ public:
   explicit MeshtasticController(MyMeshWithMeshtasticBridge* mesh);
   bool begin(uint8_t rx_pin, uint8_t tx_pin, uint32_t baud_rate);
   void loop(uint32_t now);
@@ -42,13 +42,21 @@ public:
   MeshtasticNode* get_last_seen() const {
     return _last_seen;
   }
-private:
-  static void node_report_callback(mt_node_t *node_info, mt_nr_progress_t progress);
-  static void text_message_callback(uint32_t from_node_id, uint32_t to_node_id, uint8_t channel_index, const char *text);
+
+ private:
+  static void node_report_callback(mt_node_t* node_info,
+                                   mt_nr_progress_t progress);
+  static void text_message_callback(uint32_t from_node_id,
+                                    uint32_t to_node_id,
+                                    uint8_t channel_index,
+                                    const char* text);
   static MeshtasticController* instance;
 
-  void add_node_to_db(mt_node_t *node_info, mt_nr_progress_t progress);
-  void text_message_received(uint32_t from_node_id, uint32_t to_node_id, uint8_t channel_index, const char *text);
+  void add_node_to_db(mt_node_t* node_info, mt_nr_progress_t progress);
+  void text_message_received(uint32_t from_node_id,
+                             uint32_t to_node_id,
+                             uint8_t channel_index,
+                             const char* text);
 
   MeshtasticNode _nodes[MESHTASTIC_MAX_NODEDB]{};
   MyMeshWithMeshtasticBridge* _mesh;

@@ -4,7 +4,7 @@
 
 template <typename T, int SIZE = QUEUE_SIZE>
 class SimpleQueue {
-public:
+ public:
   bool enqueue(const T& item) {
     if (count >= SIZE) {
       return false;
@@ -17,7 +17,7 @@ public:
   }
 
   bool dequeue(T& item) {
-    if (isEmpty()) {
+    if (is_empty()) {
       return false;
     }
 
@@ -34,21 +34,22 @@ public:
   }
 
   T* get_next() {
-    if (isEmpty()) {
+    if (is_empty()) {
       return nullptr;
     }
 
     return &queue[head];
   }
 
-  bool isEmpty() const {
+  bool is_empty() const {
     return count == 0;
   }
 
-  bool isFull() const {
+  bool is_full() const {
     return count == SIZE;
   }
-private:
+
+ private:
   T queue[SIZE];
   int head = 0;
   int tail = 0;

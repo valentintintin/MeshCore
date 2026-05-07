@@ -25,8 +25,8 @@ struct MeshtasticBridgePrefs {
 };
 
 struct MeshtasticBridgeMessageToSend {
-  char sender_name[MAX_SENDER_NAME_LEN]; // Max MC
-  char message[MESHTASTIC_MAX_MESSAGE_LENGTH]; // Max for MT
+  char sender_name[MAX_SENDER_NAME_LEN];         // Max MC
+  char message[MESHTASTIC_MAX_MESSAGE_LENGTH];   // Max for MT
   uint8_t meshtastic_channel_index;
   uint32_t next_time_to_send;
 };
