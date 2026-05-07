@@ -35,7 +35,7 @@ private:
   void handleGetCmd(uint32_t sender_timestamp, const char *command, char *reply);
   void handleSetCmd(uint32_t sender_timestamp, const char *command, char *reply);
 
-  bool add_meshcore_bridge_channel(uint8_t index, const char *name, const char *region);
+  MeshtasticBridgeChannel* add_meshcore_bridge_channel(uint8_t index, const char *name, const char *region);
   bool send_message(MeshtasticBridgeMessageToSend message_to_send);
   bool send_one_message_from_queue();
 

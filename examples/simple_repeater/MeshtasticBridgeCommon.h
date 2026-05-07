@@ -10,7 +10,7 @@
 
 struct MeshtasticBridgeChannel {
   ChannelDetails channel_details;
-  char region[31];
+  char region[31] = {'*'};
 };
 
 struct MeshtasticBridgePrefs {

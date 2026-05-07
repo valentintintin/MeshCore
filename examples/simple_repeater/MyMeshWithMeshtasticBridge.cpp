@@ -175,14 +175,14 @@ void MyMeshWithMeshtasticBridge::handleSetCmd(uint32_t sender_timestamp, const c
     char new_channel_name[32] = {};
     char new_region[31] = {};
 
-    // Parser : "channel XX NAME REGION"
-    int parsed = sscanf(&config[8], "%d %32s %31s", &channel_index, new_channel_name, new_region);
+    // Parser : "channel XX #name region"
+    const int parsed = sscanf(&config[8], "%d %32s %31s", &channel_index, new_channel_name, new_region);
 
     if (parsed >= 2 && channel_index < sizeof(_meshtastic_bridge_prefs.bridge_channels)) {
       if (new_channel_name[0] != '-' && new_channel_name[0] != '\0') {
-        const auto success = add_meshcore_bridge_channel(channel_index, new_channel_name, new_region);
-        if (success) {
-          sprintf(reply, "OK - MT channel %d : %s [%s]", channel_index, new_channel_name, new_region);
+        const auto channel = add_meshcore_bridge_channel(channel_index, new_channel_name, new_region);
+        if (channel != nullptr) {
+          sprintf(reply, "OK - MT channel %d : %s [%s]", channel_index, channel->channel_details.name, channel->region);
         } else {
           sprintf(reply, "ERROR: MT channel %d", channel_index);
         }
@@ -276,17 +276,17 @@ bool MyMeshWithMeshtasticBridge::saveFilePrefs() {
   return false;
 }
 
-bool MyMeshWithMeshtasticBridge::add_meshcore_bridge_channel(const uint8_t index, const char *name, const char *region) {
+MeshtasticBridgeChannel* MyMeshWithMeshtasticBridge::add_meshcore_bridge_channel(const uint8_t index, const char *name, const char *region) {
   MESH_DEBUG_PRINTLN("Bridge MT. Add channel %s at position %d", name, index);
 
   if (strlen(name) > 32) {
     MESH_DEBUG_PRINTLN("Bridge MT. Add channel %s KO. Len: %d > 32", name, strlen(name));
-    return false;
+    return nullptr;
   }
 
   if (strlen(region) > 31) {
     MESH_DEBUG_PRINTLN("Bridge MT. Add channel %s KO. Len: (%s) %d > 31", name, region, strlen(region));
-    return false;
+    return nullptr;
   }
 
   const auto bridge_channel = &_meshtastic_bridge_prefs.bridge_channels[index];
@@ -305,7 +305,7 @@ bool MyMeshWithMeshtasticBridge::add_meshcore_bridge_channel(const uint8_t index
     } else {
       MESH_DEBUG_PRINTLN("Bridge MT. Add channel (public) KO. Len: %d", len);
 
-      return false;
+      return nullptr;
     }
   } else {
     len = 16;
@@ -316,13 +316,15 @@ bool MyMeshWithMeshtasticBridge::add_meshcore_bridge_channel(const uint8_t index
 
   strncpy(bridge_channel->channel_details.name, name, sizeof(bridge_channel->channel_details.name));
 
-  if (strlen(region)) {
+  if (!strlen(region)) {
+    StrHelper::strncpy(bridge_channel->region, "*", sizeof(bridge_channel->region));
+  } else {
     StrHelper::strncpy(bridge_channel->region, region, sizeof(bridge_channel->region));
   }
 
-  MESH_DEBUG_PRINTLN("Bridge MT. Add channel %s [%s] (0x%x | 0x%x) at position %d OK", name, region, bridge_channel->channel_details.channel.secret[0], bridge_channel->channel_details.channel.hash[0], index);
+  MESH_DEBUG_PRINTLN("Bridge MT. Add channel %s [%s] (0x%x | 0x%x) at position %d OK", name, bridge_channel->region, bridge_channel->channel_details.channel.secret[0], bridge_channel->channel_details.channel.hash[0], index);
 
-  return true;
+  return bridge_channel;
 }
 
 bool MyMeshWithMeshtasticBridge::send_message_to_meshcore_from_meshtastic(const char *sender_name,
@@ -536,7 +538,7 @@ bool MyMeshWithMeshtasticBridge::send_one_message_from_queue() {
 
 bool MyMeshWithMeshtasticBridge::derive_scope_from_region_name(const char *region_name, TransportKey &scope) {
   memset(scope.key, 0, sizeof(scope.key));
-  if (strlen(region_name) == 0 || strcmp(region_name, "*") == 0) {
+  if (strcmp(region_name, "*") == 0) {
     return false; // use fallback
   }
   if (region_name[0] == '$') {
