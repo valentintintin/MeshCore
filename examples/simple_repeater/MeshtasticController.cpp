@@ -4,13 +4,7 @@
 #include "mt_internals.h"
 
 #ifndef MT_SERIAL
-#if defined(ARDUINO_ARCH_SAMD)
 #define MT_SERIAL Serial1
-#elif defined(ARDUINO_ARCH_ESP32)
-#define MT_SERIAL Serial1
-#elif defined(ARDUINO_ARCH_RP2040)
-#define MT_SERIAL Serial1
-#endif
 #endif
 
 MeshtasticController* MeshtasticController::instance = nullptr;

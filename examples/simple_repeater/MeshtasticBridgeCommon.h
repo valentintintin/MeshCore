@@ -19,8 +19,8 @@ struct MeshtasticBridgePrefs {
   uint8_t tx_pin = 255;
   uint32_t baud_rate = 115200;
   uint16_t tx_delay = 1000;
-  uint32_t interval_stop_relay_mc = 0;
-  uint32_t interval_stop_relay_mt = 0;
+  uint32_t meshcore_rx_timeout_ms = 0;
+  uint32_t meshtastic_rx_timeout_ms = 0;
   MeshtasticBridgeChannel bridge_channels[MESHTASTIC_MAX_CHANNELS] = {};
 };
 

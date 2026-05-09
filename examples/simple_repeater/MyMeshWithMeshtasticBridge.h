@@ -42,6 +42,8 @@ class MyMeshWithMeshtasticBridge : public MyMesh {
   bool send_one_message_from_queue();
 
   bool derive_scope_from_region_name(const char *region_name, TransportKey &scope);
+  bool has_recent_meshtastic_message() const;
+  bool has_recent_meshcore_message() const;
 
   MeshtasticBridgePrefs _meshtastic_bridge_prefs;
   MeshtasticController *_meshtastic_controller;
@@ -54,6 +56,7 @@ class MyMeshWithMeshtasticBridge : public MyMesh {
   uint32_t _meshcore_rx_count;   // RX from MC
   uint32_t _meshcore_tx_count;   // TX from MT to MC
   uint32_t _meshtastic_tx_count; // TX from MC to MT
+  char _last_meshcore_sender[MAX_SENDER_NAME_LEN];
 
   SimpleQueue<MeshtasticBridgeMessageToSend> _queue_message_to_send_to_meshcore{};
   SimpleQueue<MeshtasticBridgeMessageToSend> _queue_message_to_send_to_meshtastic{};
