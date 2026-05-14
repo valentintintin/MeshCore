@@ -1,7 +1,7 @@
 #include <Arduino.h> // needed for PlatformIO
 #include <Mesh.h>
 
-#include "MyMeshWithMeshtasticBridge.h"
+#include "MyMesh.h"
 
 #ifdef DISPLAY_CLASS
   #include "UITask.h"
@@ -11,8 +11,12 @@
 StdRNG fast_rng;
 SimpleMeshTables tables;
 
-// MyMesh the_mesh(board, radio_driver, *new ArduinoMillis(), fast_rng, rtc_clock, tables);
+#ifndef USE_MESHTASTIC_BRIDGE
+MyMesh the_mesh(board, radio_driver, *new ArduinoMillis(), fast_rng, rtc_clock, tables);
+#else
+#include "MyMeshWithMeshtasticBridge.h"
 MyMeshWithMeshtasticBridge the_mesh(board, radio_driver, *new ArduinoMillis(), fast_rng, rtc_clock, tables);
+#endif
 
 void halt() {
   while (1) ;
@@ -153,7 +157,6 @@ void loop() {
 #ifdef DISPLAY_CLASS
   ui_task.loop();
 #endif
-
   rtc_clock.tick();
 
   if (the_mesh.getNodePrefs()->powersaving_enabled && !the_mesh.hasPendingWork()) {

@@ -6,13 +6,15 @@
 
 #include <Meshtastic.h>
 
+#define NODE_REPORT_TIMEOUT 10 * 1000
+
 // Request a node report every this many msec
 #ifndef NODE_REPORT_PERIOD
 #define NODE_REPORT_PERIOD (300 * 1000)
 #endif
 
-#ifndef MESHTASTIC_MAX_NODEDB
-#define MESHTASTIC_MAX_NODEDB 100
+#ifndef MESHTASTIC_BRIDGE_MAX_NODEDB
+#define MESHTASTIC_BRIDGE_MAX_NODEDB 100
 #endif
 
 struct MeshtasticNode {
@@ -30,6 +32,10 @@ class MeshtasticController {
   void stop();
   bool request_node_report();
   bool send_message(uint32_t now, MeshtasticBridgeMessageToSend message_to_send);
+
+  bool is_initialized() const {
+    return _initialized;
+  }
 
   uint8_t nodes_count() const {
     return _nodes_count;
@@ -58,13 +64,14 @@ class MeshtasticController {
                              uint8_t channel_index,
                              const char* text);
 
-  MeshtasticNode _nodes[MESHTASTIC_MAX_NODEDB]{};
+  MeshtasticNode _nodes[MESHTASTIC_BRIDGE_MAX_NODEDB]{};
   MyMeshWithMeshtasticBridge* _mesh;
 
   uint8_t _nodes_count = 0;
   uint32_t _next_node_report_time = 0;
+  uint32_t _next_node_report_time_timeout = 0;
 
   MeshtasticNode* _last_seen = nullptr;
 
-  // bool _has_error = false; // TODO mode status avec timeout du report
+  bool _initialized = false;
 };

@@ -57,7 +57,8 @@ void MyMeshWithMeshtasticBridge::handleCommand(uint32_t sender_timestamp, char *
       };
       StrHelper::strncpy(message_to_send.sender_name, getNodeName(), MAX_SENDER_NAME_LEN);
       if (_meshtastic_controller->send_message(_ms->getMillis(), message_to_send)) {
-        sprintf(reply, "> MT nodes: %d\nTest sent on MT primary channel",
+        sprintf(reply, "> MT init: %d\nMT nodes: %d\nTest sent on MT primary channel",
+                _meshtastic_controller->is_initialized(),
                 _meshtastic_controller->nodes_count());
       } else {
         sprintf(reply, "> MT nodes: %d. Can not send on MT", _meshtastic_controller->nodes_count());
@@ -542,7 +543,7 @@ bool MyMeshWithMeshtasticBridge::send_message(MeshtasticBridgeMessageToSend mess
 bool MyMeshWithMeshtasticBridge::send_one_message_from_queue() {
   if (!_queue_message_to_send_to_meshcore.is_empty()) {
     const auto meshcore_message = _queue_message_to_send_to_meshcore.get_next();
-    if (_ms->getMillis() > meshcore_message->next_time_to_send) {
+    if (millisHasNowPassed(meshcore_message->next_time_to_send)) {
       if (send_message(*meshcore_message)) {
         MeshtasticBridgeMessageToSend message{};
         _queue_message_to_send_to_meshcore.dequeue(message);
@@ -553,7 +554,7 @@ bool MyMeshWithMeshtasticBridge::send_one_message_from_queue() {
 
   if (!_queue_message_to_send_to_meshtastic.is_empty()) {
     const auto meshtastic_message = _queue_message_to_send_to_meshtastic.get_next();
-    if (_ms->getMillis() > meshtastic_message->next_time_to_send) {
+    if (millisHasNowPassed(meshtastic_message->next_time_to_send)) {
       if (_meshtastic_controller->send_message(_ms->getMillis(), *meshtastic_message)) {
         MeshtasticBridgeMessageToSend message{};
         _queue_message_to_send_to_meshtastic.dequeue(message);
@@ -589,7 +590,7 @@ bool MyMeshWithMeshtasticBridge::has_recent_meshtastic_message() const {
     return true;
   }
 
-  return _ms->getMillis() - _last_meshtastic_rx_ms <= _meshtastic_bridge_prefs.meshtastic_rx_timeout_ms;
+  return !millisHasNowPassed(_last_meshtastic_rx_ms + _meshtastic_bridge_prefs.meshtastic_rx_timeout_ms);
 }
 
 bool MyMeshWithMeshtasticBridge::has_recent_meshcore_message() const {
@@ -597,5 +598,5 @@ bool MyMeshWithMeshtasticBridge::has_recent_meshcore_message() const {
     return true;
   }
 
-  return _ms->getMillis() - _last_meshcore_rx_ms <= _meshtastic_bridge_prefs.meshcore_rx_timeout_ms;
+  return !millisHasNowPassed(_last_meshcore_rx_ms + _meshtastic_bridge_prefs.meshcore_rx_timeout_ms);
 }
