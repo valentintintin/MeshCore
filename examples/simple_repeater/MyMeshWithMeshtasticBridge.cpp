@@ -19,7 +19,7 @@ void MyMeshWithMeshtasticBridge::begin(FILESYSTEM *fs) {
   begin_bridge();
 }
 
-void MyMeshWithMeshtasticBridge::handleCommand(uint32_t sender_timestamp, char *command, char *reply) {
+void MyMeshWithMeshtasticBridge::handleCommand(const uint32_t sender_timestamp, char *command, char *reply) {
   while (*command == ' ') {
     command++; // skip leading spaces
   }
@@ -41,15 +41,16 @@ void MyMeshWithMeshtasticBridge::handleCommand(uint32_t sender_timestamp, char *
         strcpy(reply, "Err - save failed");
       }
     } else if (memcmp(sub_command, "stats", 5) == 0) {
-      const auto mt_last_seen = _meshtastic_controller->get_last_seen();
+      const auto [mt_last_seen_node_num, mt_last_seen_long_name] = _meshtastic_controller->get_last_seen();
       snprintf(reply, 160,
                ">\n"
-               "MT RX:%d (-%ds !%x %s) TX->MC:%d %c\n"
+               "MT RX:%d (-%ds %s) TX->MC:%d %c\n"
                "MC RX:%d (-%ds %s) TX->MT:%d %c",
                _meshtastic_rx_count, (_ms->getMillis() - _last_meshtastic_rx_ms) / 1000,
-               mt_last_seen ? mt_last_seen->node_num : 0, mt_last_seen ? mt_last_seen->long_name : "",
-               _meshcore_tx_count, has_recent_meshtastic_message() ? '+' : '-', _meshcore_rx_count,
-               (_ms->getMillis() - _last_meshcore_rx_ms) / 1000, _last_meshcore_sender, _meshtastic_tx_count,
+               mt_last_seen_long_name, _meshcore_tx_count,
+               has_recent_meshtastic_message() ? '+' : '-', _meshcore_rx_count,
+               (_ms->getMillis() - _last_meshcore_rx_ms) / 1000,
+               _last_meshcore_sender, _meshtastic_tx_count,
                has_recent_meshcore_message() ? '+' : '-');
     } else if (memcmp(sub_command, "test", 4) == 0) {
       MeshtasticBridgeMessageToSend message_to_send = {
@@ -503,7 +504,7 @@ bool MyMeshWithMeshtasticBridge::send_message(MeshtasticBridgeMessageToSend mess
     return false;
   }
 
-  TransportKey scope;
+  TransportKey scope{};
   derive_scope_from_region_name(bridge_channel.region, scope);
 
   auto text_len = strlen(message_to_send.message);

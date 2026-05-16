@@ -153,7 +153,9 @@ void MeshtasticController::text_message_received(const uint32_t from_node_id,
       channel_index, from_node_id, to_node_id, text);
 
   if (to_node_id == 0xFFFFFFFF) {
-    MeshtasticNode* node_info = nullptr;
+    _last_seen.node_num = from_node_id;
+    snprintf(_last_seen.long_name, sizeof(_last_seen.long_name), "!%x", from_node_id);
+
     for (auto i = 0; i < _nodes_count; i++) {
       const auto [node_num, long_name] = _nodes[i];
 
@@ -162,25 +164,16 @@ void MeshtasticController::text_message_received(const uint32_t from_node_id,
       }
 
       if (node_num == from_node_id) {
-        MESH_DEBUG_PRINTLN("[MT Bridge] Matched node !%x (%s)", node_num,
-                           long_name);
-        node_info = &_nodes[i];
+        if (strlen(_nodes[i].long_name) > 0) {
+          MESH_DEBUG_PRINTLN("[MT Bridge] Matched node !%x (%s)", node_num, long_name);
+          StrHelper::strncpy(_last_seen.long_name, _nodes[i].long_name, sizeof(_last_seen.long_name));
+        }
+
         break;
       }
     }
 
-    char sender_name[MESHTASTIC_MAX_MESSAGE_LENGTH]{};
-    snprintf(sender_name, sizeof(sender_name), "!%x", from_node_id);
-
-    if (node_info != nullptr) {
-      _last_seen = node_info;
-
-      if (strlen(node_info->long_name)) {
-        StrHelper::strncpy(sender_name, node_info->long_name, sizeof(sender_name));
-      }
-    }
-
-    _mesh->send_message_to_meshcore_from_meshtastic(sender_name, text, channel_index);
+    _mesh->send_message_to_meshcore_from_meshtastic(_last_seen.long_name, text, channel_index);
   }
 }
 

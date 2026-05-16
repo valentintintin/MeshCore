@@ -45,7 +45,7 @@ class MeshtasticController {
     return _nodes[index];
   }
 
-  MeshtasticNode* get_last_seen() const {
+  MeshtasticNode get_last_seen() const {
     return _last_seen;
   }
 
@@ -71,7 +71,7 @@ class MeshtasticController {
   uint32_t _next_node_report_time = 0;
   uint32_t _next_node_report_time_timeout = 0;
 
-  MeshtasticNode* _last_seen = nullptr;
+  MeshtasticNode _last_seen{};
 
   bool _initialized = false;
 };
