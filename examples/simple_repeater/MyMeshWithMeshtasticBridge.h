@@ -8,6 +8,9 @@
 #define PUBLIC_GROUP_PSK "izOH6cXN6mrJ5e26oRXNcg=="
 #define PREFS_FILENAME "/meshtastic_bridge_prefs"
 
+#define FIRMWARE_VERSION "v1.15.0 Bridge Meshtastic"
+#define FIRMWARE_BUILD_DATE "29 May 2026"
+
 class MeshtasticController;
 
 // ReSharper disable once CppPolymorphicClassWithNonVirtualPublicDestructor
@@ -23,6 +26,8 @@ class MyMeshWithMeshtasticBridge : public MyMesh {
   bool send_message_to_meshcore_from_meshtastic(const char *sender_name, const char *text,
                                                 uint8_t meshtastic_channel_index);
   void clearStats() override;
+  const char* getFirmwareVer() override { return FIRMWARE_VERSION; }
+  const char* getBuildDate() override { return FIRMWARE_BUILD_DATE; }
 
  protected:
   int searchChannelsByHash(const uint8_t *hash, mesh::GroupChannel dest[], int max_matches) override;

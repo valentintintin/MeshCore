@@ -122,7 +122,7 @@ void MyMeshWithMeshtasticBridge::handle_get_cmd(uint32_t sender_timestamp, const
     const int node_index = atoi(&config[5]);
     if (node_index >= 0 && node_index < _meshtastic_controller->nodes_count()) {
       const auto [node_num, long_name] = _meshtastic_controller->get_node(node_index);
-      sprintf(reply, "> MT node %d/%d = !%x : %s", node_index, _meshtastic_controller->nodes_count(),
+      sprintf(reply, "> MT node %d/%d = !%x : %s", node_index + 1, _meshtastic_controller->nodes_count(),
               node_num, long_name);
     } else {
       sprintf(reply, "ERROR: [0; %d]", _meshtastic_controller->nodes_count());
