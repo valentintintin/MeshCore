@@ -30,10 +30,10 @@ void MyMeshWithMeshtasticBridge::handleCommand(const uint32_t sender_timestamp, 
       handle_get_cmd(sender_timestamp, &sub_command[4], reply);
     } else if (memcmp(sub_command, "set ", 4) == 0) {
       handle_set_cmd(sender_timestamp, &sub_command[4], reply);
-    } else if (memcmp(sub_command, "reload ", 6) == 0) {
+    } else if (memcmp(sub_command, "reload", 6) == 0) {
       begin_bridge();
       strcpy(reply, "OK");
-    } else if (memcmp(sub_command, "save ", 4) == 0) {
+    } else if (memcmp(sub_command, "save", 4) == 0) {
       if (save_file_prefs()) {
         begin_bridge();
         strcpy(reply, "OK");
@@ -462,7 +462,7 @@ void MyMeshWithMeshtasticBridge::onGroupDataRecv(mesh::Packet *packet, uint8_t t
         .meshtastic_channel_index = channel_index,
         .next_time_to_send = _ms->getMillis() + _meshtastic_bridge_prefs.tx_delay
       };
-      sscanf(text, "%31[^:]: %199s", message_to_send.sender_name, message_to_send.message);
+      sscanf(text, "%31[^:]: %199[^\0]", message_to_send.sender_name, message_to_send.message);
 
       StrHelper::strncpy(_last_meshcore_sender, message_to_send.sender_name, sizeof(_last_meshcore_sender));
 
