@@ -178,7 +178,7 @@ bool MeshtasticController::send_message(uint32_t now, MeshtasticBridgeMessageToS
   }
 
   char temp[MESHTASTIC_MAX_MESSAGE_LENGTH];
-  snprintf(temp, MESHTASTIC_MAX_MESSAGE_LENGTH, "MT_%s:%s", message_to_send.sender_name,
+  snprintf(temp, MESHTASTIC_MAX_MESSAGE_LENGTH, "MC_%s:%s", message_to_send.sender_name,
            message_to_send.message);
 
   MESH_DEBUG_PRINTLN("[MT Bridge] Send to Meshtastic channel=%d payload='%s'",
