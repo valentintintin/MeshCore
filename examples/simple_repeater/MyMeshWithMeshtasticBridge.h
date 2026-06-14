@@ -8,8 +8,8 @@
 #define PUBLIC_GROUP_PSK "izOH6cXN6mrJ5e26oRXNcg=="
 #define PREFS_FILENAME "/meshtastic_bridge_prefs"
 
-#define FIRMWARE_VERSION "v1.15.0 Bridge Meshtastic"
-#define FIRMWARE_BUILD_DATE "29 May 2026"
+#define FIRMWARE_VERSION "v1.16.0 Bridge Meshtastic"
+#define FIRMWARE_BUILD_DATE "14 Jun 2026"
 
 class MeshtasticController;
 
@@ -20,7 +20,7 @@ class MyMeshWithMeshtasticBridge : public MyMesh {
                              mesh::RNG &rng, mesh::RTCClock &rtc, mesh::MeshTables &tables);
   void begin(FILESYSTEM *fs);
   void beginBridge();
-  void handleCommand(uint32_t sender_timestamp, char *command, char *reply);
+  void handleCommand(uint32_t sender_timestamp, char *command, char *reply) override;
   void loop();
 
   bool send_message_to_meshcore_from_meshtastic(const char *sender_name, const char *text,
