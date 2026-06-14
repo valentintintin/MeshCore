@@ -12,9 +12,9 @@ void MyMeshWithMeshtasticBridge::begin(FILESYSTEM *fs) {
 
   _fs = fs;
 
-  add_meshcore_bridge_channel(0, "public", "");
-
-  load_file_prefs();
+  if (!load_file_prefs()) {
+    add_meshcore_bridge_channel(0, "public", "");
+  }
 
   begin_bridge();
 }

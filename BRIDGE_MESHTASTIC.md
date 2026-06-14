@@ -62,7 +62,7 @@ mt set channel 0 -           	# Disable channel 0
   - `#custom` : custom channel with tag-based key derivation
 - `REGION` : optional region code (max 31 chars)
   - `*` : global (default)
-  - `#custom` : custom region code
+  - `custom` : custom region code
 
 ### Meshtastic Node Inspection
 
