@@ -354,6 +354,11 @@ bool MyMeshWithMeshtasticBridge::send_message_to_meshcore_from_meshtastic(const 
     return false;
   }
 
+  if (startsWith(SENDER_PREFIX_MC, sender_name)) {
+    MESH_DEBUG_PRINTLN("[MT Bridge] Drop MT->MC message '%s_%s': loop detected %s", sender_name, text, SENDER_PREFIX_MC);
+    return false;
+  }
+
   _last_meshtastic_rx_ms = _ms->getMillis();
   _meshtastic_rx_count++;
 
@@ -440,6 +445,11 @@ void MyMeshWithMeshtasticBridge::onGroupDataRecv(mesh::Packet *packet, uint8_t t
 
     MESH_DEBUG_PRINTLN("[MT Bridge] Received MC->MT message '%s' on channel hash[0]=0x%x", text,
                        channel.hash[0]);
+
+    if (startsWith(SENDER_PREFIX_MT, text)) {
+      MESH_DEBUG_PRINTLN("[MT Bridge] Drop MC->MT message '%s': loop detected %s", text, SENDER_PREFIX_MT);
+      return;
+    }
 
     uint8_t channel_index = 0;
 

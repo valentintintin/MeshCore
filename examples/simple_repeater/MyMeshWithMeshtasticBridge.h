@@ -11,6 +11,9 @@
 #define FIRMWARE_VERSION "v1.16.0 Bridge Meshtastic"
 #define FIRMWARE_BUILD_DATE "14 Jun 2026"
 
+#define SENDER_PREFIX_MT "MT_"
+#define SENDER_PREFIX_MC "MC_"
+
 class MeshtasticController;
 
 // ReSharper disable once CppPolymorphicClassWithNonVirtualPublicDestructor
@@ -49,6 +52,11 @@ class MyMeshWithMeshtasticBridge : public MyMesh {
   bool derive_scope_from_region_name(const char *region_name, TransportKey &scope);
   bool has_recent_meshtastic_message() const;
   bool has_recent_meshcore_message() const;
+
+  bool startsWith(const char *pre, const char *str)
+  {
+    return strncmp(pre, str, strlen(pre)) == 0;
+  }
 
   MeshtasticBridgePrefs _meshtastic_bridge_prefs;
   MeshtasticController *_meshtastic_controller;
