@@ -24,6 +24,10 @@ build_flags =
 
 Bridge starts disabled. Configure via serial commands.
 
+### For RP2040
+
+RP2040 has 2 UART. **UART1** is used : GPIO 4/5 or GPIO 8/9.
+
 ## Commands
 
 ### Global Configuration

@@ -4,7 +4,11 @@
 #include "mt_internals.h"
 
 #ifndef MESHTASTIC_BRIDGE_SERIAL_PORT
-#define MESHTASTIC_BRIDGE_SERIAL_PORT Serial1
+#if defined(ARDUINO_ARCH_RP2040)
+#define MESHTASTIC_BRIDGE_SERIAL_PORT Serial2
+#else
+#define MESHTASTIC_BRIDGE_SERIAL_PORT Serial
+#endif
 #endif
 
 MeshtasticController *MeshtasticController::instance = nullptr;
