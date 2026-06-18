@@ -11,8 +11,9 @@
 #define FIRMWARE_VERSION "v1.16.0 Bridge Meshtastic"
 #define FIRMWARE_BUILD_DATE "14 Jun 2026"
 
-#define SENDER_PREFIX_MT "MT_"
-#define SENDER_PREFIX_MC "MC_"
+#define SENDER_PREFIX_MT "MT"
+#define SENDER_PREFIX_MC "MC"
+#define SENDER_SEPARATOR '_'
 
 class MeshtasticController;
 
@@ -53,9 +54,12 @@ class MyMeshWithMeshtasticBridge : public MyMesh {
   bool has_recent_meshtastic_message() const;
   bool has_recent_meshcore_message() const;
 
-  bool startsWith(const char *pre, const char *str)
-  {
-    return strncmp(pre, str, strlen(pre)) == 0;
+  bool startsWith(const char *pre, const char *str) {
+    if (!pre || !str)
+      return false;
+
+    const size_t len = strlen(pre);
+    return strncmp(str, pre, len) == 0;
   }
 
   MeshtasticBridgePrefs _meshtastic_bridge_prefs;

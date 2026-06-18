@@ -529,7 +529,7 @@ bool MyMeshWithMeshtasticBridge::send_message(MeshtasticBridgeMessageToSend mess
   memcpy(temp, &timestamp, 4); // mostly an extra blob to help make packet_hash unique
   temp[4] = 0;                 // TXT_TYPE_PLAIN
 
-  sprintf((char *)&temp[5], "MT_%s: ", message_to_send.sender_name); // <sender>: <msg>
+  sprintf((char *)&temp[5], "%s%c%s: ", SENDER_PREFIX_MT, SENDER_SEPARATOR, message_to_send.sender_name); // <sender>: <msg>
   char *ep = strchr((char *)&temp[5], 0);
   const int prefix_len = ep - (char *)&temp[5];
 
