@@ -53,8 +53,9 @@ class MyMeshWithMeshtasticBridge : public MyMesh {
   bool derive_scope_from_region_name(const char *region_name, TransportKey &scope);
   bool has_recent_meshtastic_message() const;
   bool has_recent_meshcore_message() const;
+  bool message_maybe_loop(const char *text) const;
 
-  bool startsWith(const char *pre, const char *str) {
+  bool startsWith(const char *pre, const char *str) const {
     if (!pre || !str)
       return false;
 

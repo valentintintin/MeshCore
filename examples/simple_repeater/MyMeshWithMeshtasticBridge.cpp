@@ -354,8 +354,8 @@ bool MyMeshWithMeshtasticBridge::send_message_to_meshcore_from_meshtastic(const 
     return false;
   }
 
-  if (startsWith(SENDER_PREFIX_MC, sender_name)) {
-    MESH_DEBUG_PRINTLN("[MT Bridge] Drop MT->MC message '%s_%s': loop detected %s", sender_name, text, SENDER_PREFIX_MC);
+  if (message_maybe_loop(sender_name)) {
+    MESH_DEBUG_PRINTLN("[MT Bridge] Drop MT->MC message '%s_%s': loop detected", sender_name, text);
     return false;
   }
 
@@ -446,8 +446,8 @@ void MyMeshWithMeshtasticBridge::onGroupDataRecv(mesh::Packet *packet, uint8_t t
     MESH_DEBUG_PRINTLN("[MT Bridge] Received MC->MT message '%s' on channel hash[0]=0x%x", text,
                        channel.hash[0]);
 
-    if (startsWith(SENDER_PREFIX_MT, text)) {
-      MESH_DEBUG_PRINTLN("[MT Bridge] Drop MC->MT message '%s': loop detected %s", text, SENDER_PREFIX_MT);
+    if (message_maybe_loop(text)) {
+      MESH_DEBUG_PRINTLN("[MT Bridge] Drop MC->MT message '%s': loop detected", text);
       return;
     }
 
@@ -610,4 +610,18 @@ bool MyMeshWithMeshtasticBridge::has_recent_meshcore_message() const {
   }
 
   return !millisHasNowPassed(_last_meshcore_rx_ms + _meshtastic_bridge_prefs.meshcore_rx_timeout_ms);
+}
+
+bool MyMeshWithMeshtasticBridge::message_maybe_loop(const char *text) const {
+  if (startsWith(SENDER_PREFIX_MC, text)) {
+    MESH_DEBUG_PRINTLN("[MT Bridge] loop detected %s starts with %s", text, SENDER_PREFIX_MC);
+    return true;
+  }
+
+  if (startsWith(SENDER_PREFIX_MT, text)) {
+    MESH_DEBUG_PRINTLN("[MT Bridge] Loop detected %s starts with %s", text, SENDER_PREFIX_MT);
+    return true;
+  }
+
+  return false;
 }
