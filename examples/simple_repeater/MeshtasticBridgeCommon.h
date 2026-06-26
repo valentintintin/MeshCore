@@ -3,7 +3,7 @@
 #include "helpers/ChannelDetails.h"
 #include <cstdint>
 
-#define MESHTASTIC_MAX_CHANNELS 5
+#define MESHTASTIC_MAX_CHANNELS 8
 
 #define MESHTASTIC_MAX_MESSAGE_LENGTH 200
 #define MAX_SENDER_NAME_LEN 32
